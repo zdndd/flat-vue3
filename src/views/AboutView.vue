@@ -44,27 +44,25 @@
   </el-form>
 </template>
 
-<script>
-export default {
-  name: "about",
-  data() {
-    return {
-      form: {
-        marital: "10",
-        local: "10",
-        estates: "",
-        buy: "",
-      },
-      months: "148",
-      coefficient: "",
-    };
-  },
-  computed: {
-    score: function () {
-      const arr = Object.values(this.form);
-      const formTotal = arr.reduce((a, c) => Number(a) + Number(c));
-      return (formTotal + this.months * this.coefficient).toFixed(1);
-    },
-  },
-};
+<script setup lang="ts">
+import { ref, reactive, computed } from "vue";
+interface formType {
+  marital: string;
+  local: string;
+  estates: string;
+  buy: string;
+}
+const form: formType = reactive({
+  marital: "10",
+  local: "10",
+  estates: "5",
+  buy: "0",
+});
+const months = ref<number>(148);
+const coefficient = ref(0);
+const score: number = computed(() => {
+  const arr = Object.values(form);
+  const formTotal = arr.reduce((a, c) => Number(a) + Number(c));
+  return (formTotal + months.value * coefficient.value).toFixed(1);
+});
 </script>
