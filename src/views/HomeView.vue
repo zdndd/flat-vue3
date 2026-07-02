@@ -1,5 +1,22 @@
 <template>
   <el-form :model="form" label-position="left" label-width="120px">
+    <el-form-item label="选择城市">
+      <el-col :span="5">
+        <el-select
+          v-model="cityStore.selectedCityId"
+          placeholder="请选择城市"
+          style="width: 100%"
+        >
+          <el-option
+            v-for="city in cityStore.cities"
+            :key="city.id"
+            :label="city.name"
+            :value="city.id"
+          />
+        </el-select>
+      </el-col>
+    </el-form-item>
+
     <el-form-item label="总价">
       <el-col :span="5">
         <el-input-number :min="1" v-model="form.money" />
@@ -66,7 +83,18 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed } from "vue";
+import { reactive, computed, ref } from "vue";
+import { useCityStore } from "@/stores/useCityStore";
+
+const cityStore = useCityStore();
+
+console.log("cityStore111111", cityStore);
+
+cityStore.$subscribe((mutation, state) => {
+  console.log("cityStore222222", mutation);
+  console.log("cityStore333", state.selectedCityId);
+});
+
 interface formt {
   money: number;
   oldMoney: number;
@@ -138,7 +166,7 @@ const middle = computed(() => {
 const total = computed(() => {
   return (
     Math.ceil(
-      qiTax.value * 10000 + zengzhiTax.value * 10000 + personTax.value * 10000
+      qiTax.value * 10000 + zengzhiTax.value * 10000 + personTax.value * 10000,
     ) / 10000
   );
 });
