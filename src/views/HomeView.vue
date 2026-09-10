@@ -32,16 +32,16 @@
 
     <el-form-item label="房屋类型">
       <el-radio-group v-model="form.type">
-        <el-radio label="1">普通住宅</el-radio>
-        <el-radio label="1.5">非普通住宅</el-radio>
+        <el-radio :value="1">普通住宅</el-radio>
+        <el-radio :value="1.5">非普通住宅</el-radio>
       </el-radio-group>
     </el-form-item>
     <el-form-item label="契税"> 比例：{{ form.type }} </el-form-item>
 
     <el-form-item label="增值税及附加税" class="likediv">
       <el-radio-group v-model="form.year">
-        <el-radio label="1">不满两年</el-radio>
-        <el-radio label="2">满两年</el-radio>
+        <el-radio :value="1">不满两年</el-radio>
+        <el-radio :value="2">满两年</el-radio>
       </el-radio-group>
       <div v-if="form.year >= 2">
         <p v-if="form.type <= 1">满两年-普通住宅-0</p>
@@ -54,8 +54,8 @@
     </el-form-item>
     <el-form-item label="个税" class="likediv">
       <el-radio-group v-model="form.year2">
-        <el-radio label="1">不满五或者不唯一</el-radio>
-        <el-radio label="5">满五唯一</el-radio>
+        <el-radio :value="1">不满五或者不唯一</el-radio>
+        <el-radio :value="5">满五唯一</el-radio>
       </el-radio-group>
       <div v-if="form.year2 < 5">
         <p v-if="form.type <= 1">普通住宅-（税务核定价-增值税） × 1</p>
@@ -70,110 +70,92 @@
     </el-form-item>
   </el-form>
   <div>
-    手续费：{{ total }}万 = 契税：{{ qiTax }}万 + 增值税及附加税：{{
-      zengzhiTax
-    }}万 + 个税{{ personTax }}万
+    手续费：{{ formatWan(total) }}万 = 契税：{{ formatWan(qiTax) }}万 + 增值税及附加税：{{
+      formatWan(zengzhiTax)
+    }}万 + 个税{{ formatWan(personTax) }}万
   </div>
 
-  <div>中介费{{ middle }}万</div>
+  <div>中介费{{ formatWan(middle) }}万</div>
 
-  <div>首付：{{ first }}</div>
+  <div>首付：{{ formatWan(first) }}</div>
 
-  <div>最终总价:{{ final }}</div>
+  <div>最终总价:{{ formatWan(final) }}</div>
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, ref } from "vue";
+import { reactive, computed } from "vue";
 import { useCityStore } from "@/stores/useCityStore";
 
 const cityStore = useCityStore();
 
-console.log("cityStore111111", cityStore);
+// --- 工具函数 ---
+/** 精度安全的向上取整（保留 N 位小数） */
+const ceilFixed = (value: number, decimals: number): number => {
+  const factor = 10 ** decimals;
+  return Math.ceil(value * factor) / factor;
+};
 
-cityStore.$subscribe((mutation, state) => {
-  console.log("cityStore222222", mutation);
-  console.log("cityStore333", state.selectedCityId);
-});
+/** 格式化为万位展示，保留2位小数 */
+const formatWan = (value: number): string => value.toFixed(2);
 
-interface formt {
+// --- 表单数据 ---
+interface TaxForm {
   money: number;
   oldMoney: number;
-  type: string;
-  year: string;
-  year2: string;
-  middle: number;
+  type: number;   // 1 = 普通住宅, 1.5 = 非普通住宅
+  year: number;   // 1 = 不满两年, 2 = 满两年
+  year2: number;  // 1 = 不满五/不唯一, 5 = 满五唯一
+  middle: number; // 中介费比例
 }
-const form: formt = reactive({
+
+const form: TaxForm = reactive({
   money: 359,
   oldMoney: 15,
-  type: "1.5",
-  year: "2",
-  year2: "1",
+  type: 1.5,
+  year: 2,
+  year2: 1,
   middle: 2,
 });
 
-const first = computed(() => {
-  return (form.money * 0.35).toFixed(2);
-});
+// --- 计算链 ---
 
-const qiTax = computed(() => {
-  return ((form.money * form.type) / 100).toFixed(3);
-});
+/** 首付 = 总价 × 35% */
+const first = computed(() => form.money * 0.35);
 
+/** 契税 = 总价 × 契税比例 / 100 */
+const qiTax = computed(() => (form.money * form.type) / 100);
+
+/** 增值税及附加税 */
 const zengzhiTax = computed(() => {
-  let result = 0;
   if (form.year >= 2) {
-    //满2年
-    if (form.type > 1) {
-      //非普通住宅
-      result = ((form.money - form.oldMoney) * 5.38) / 100;
-    } else {
-      result = 0;
-    }
-  } else {
-    //不满两年
-    if (form.type > 1) {
-      result = ((form.money * 5.38) / 100).toFixed(3);
-    } else {
-      result = ((form.money * 5.38) / 100).toFixed(3);
-    }
+    // 满两年
+    return form.type > 1
+      ? ((form.money - form.oldMoney) * 5.38) / 100  // 非普通住宅
+      : 0;                                            // 普通住宅免征
   }
-  return result;
+  // 不满两年：统一按总价 × 5.38%
+  return (form.money * 5.38) / 100;
 });
 
+/** 个税 */
 const personTax = computed(() => {
-  let result = 0;
-  if (form.year2 >= 5) {
-    //满5年
-    result = 0;
-  } else {
-    //不满5年
-    if (form.type > 1) {
-      //非普通
-      result = (((form.money - zengzhiTax.value) * 2) / 100).toFixed(3);
-    } else {
-      result = (((form.money - zengzhiTax.value) * 1) / 100).toFixed(3);
-    }
-  }
-  return result;
+  if (form.year2 >= 5) return 0; // 满五唯一免征
+  const rate = form.type > 1 ? 2 : 1; // 非普通 ×2，普通 ×1
+  return ((form.money - zengzhiTax.value) * rate) / 100;
 });
 
-const middle = computed(() => {
-  let _num = (form.money * form.middle) / 100;
-  return _num;
-});
+/** 中介费 */
+const middle = computed(() => (form.money * form.middle) / 100);
 
-const total = computed(() => {
-  return (
-    Math.ceil(
-      qiTax.value * 10000 + zengzhiTax.value * 10000 + personTax.value * 10000,
-    ) / 10000
-  );
-});
+/** 手续费合计 = 契税 + 增值税 + 个税 */
+const total = computed(() =>
+  ceilFixed(qiTax.value + zengzhiTax.value + personTax.value, 4),
+);
 
-const final = computed(() => {
-  return Math.ceil(total.value * 10000 + first.value * 10000) / 10000;
-});
+/** 最终总价 = 手续费 + 首付 */
+const final = computed(() =>
+  ceilFixed(total.value + first.value, 4),
+);
 </script>
 
 <style scoped>
